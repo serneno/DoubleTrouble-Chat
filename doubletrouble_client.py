@@ -1,75 +1,129 @@
+"""
+Client Module for Encryption and Decryption
+"""
 import os
 import json
 import hmac
 import hashlib
-#import Crypto
-#from cryptography.hazmat.primitives import load_pem_public_key
-#from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from Crypto.Cipher import AES
-from Crypto.Cipher import PKCS1_OAEP
-from Crypto.PublicKey import RSA
-from Crypto import Random
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, hmac, padding
 
-pad = lambda s: s + (AES.block_size - len(s) % AES.block_size) * chr(AES.block_size - len(s) % AES.block_size) #Adds padding
-unpad = lambda s: s[:-ord(s[len(s)-1:])] #removes padding
+#Padding/Unpadding for AES encryption
+sym_pad = padding.PKCS7(256).padder()
+sym_unpad = padding.PKCS7(256).unpadder()
 
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+"""
+RSA-OAEP object to load public key
+AES object to generate 256-bit key
+encrypt message with AES key, prepended with IV
+Generate HMAC 256-bit key and HMAC (SHA-256) on ciphertext to create integrity tag 
+Concatenate AES & HMAC keys and encrypt with RSA 
+Create json object with RSA ciphertext, AES ciphertext, IV, and HMAC tag
+note size of each key
+"""
 def encrypter(message, public_key):
-    #rsa_object = RSA.generate(2048) #initialize 2048-bit RSA object
-    key_file = open(public_key, 'r') #opens the public key file, read only and binary mode
-    rsa_key = RSA.importKey(key_file.read()) #imports RSA key
-    rsa_cipher = PKCS1_OAEP.new(rsa_key) #creates RSA object using the RSA public key with OAEP
-    message = pad(message)
-    aes_key = os.urandom(32) #256-bit key used for AES
-    iv = os.urandom(AES.block_size) #128-bit IV (16 bytes)
-    aes_obj = AES.new(aes_key, AES.MODE_CBC, iv) #AES object 
-    ciph_text = iv + aes_obj.encrypt(message) #generates ciphertext with AES key and prepadded with IV
+    #Loading RSA Public Key
+    key_file = open(public_key, 'rb') #opens the public key file, read only and binary mode
+    load_public_key = serialization.load_pem_public_key(key_file.read(), backend=default_backend())
+    public_key = load_public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+
+    #Pads the message
+    padded_message = sym_pad.update(message.encode('utf-8'))
+    padded_message += sym_pad.finalize()
+
+    #AES Message Encryption
+    aes_key = os.urandom(32) #256-bit Key
+    iv = os.urandom(16) #128-bit IV (16 bytes)
+    #AES-CBC encryptor object
+    aes_encrypt = Cipher(
+        algorithms.AES(aes_key),
+        modes.CBC(iv),
+        backend=default_backend()
+    ).encryptor()
+    ciph_text = aes_encrypt.update(padded_message) + aes_encrypt.finalize()
+
+    #HMAC Tag Creation
     hmac_key = os.urandom(32) #256-bit key used for HMAC
-    hmac_obj = hmac.new(hmac_key, ciph_text, hashlib.sha256) #create HMAC object using the shared public key and SHA256
-    hmac_tag = hmac_obj.digest() #creates the hmac tag, not sure if implemented correctly
-    #print("AES Key:" + str(aes_key) + " length: " + str(len(aes_key)))
-    #print("HMAC Key:" + str(hmac_key) + " length: " + str(len(hmac_key)))
+    hmac_tag = hmac.HMAC(hmac_key, hashes.SHA256(), backend=default_backend())
+    hmac_tag.update(ciph_text)
+    tag = hmac_tag.finalize()
+
+    #Encrypting AES and HMAC Key using RSA
     conc_key = aes_key + hmac_key #concatanates keys (512-bit total)
-    ciph_key = rsa_cipher.encrypt(conc_key) #encrypts the concatenation of the AES and HMAC key 
+    ciph_key = load_public_key.encrypt(
+        conc_key,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+    #Creates JSON output, currently dict object
+    output = {"RSA_cipher": ciph_key, "AES_cipher": ciph_text, "IV": iv, "tag": tag}
+    return output
     #json_data = b'[{"RSA_cipher": ciph_key, "AES_cipher": ciph_text, "IV": iv, "tag": hmac_tag}]'
-    json_output = {"RSA_cipher": ciph_key, "AES_cipher": ciph_text, "IV": iv, "tag": hmac_tag}
     #json_decode = json_data.decode('utf8').replace("'", '"')
     #json_output = json.dumps(json_decode)
 
-    return json_output
-    #pub_key = load_pem_public_key(public_key, backend=default_backend()) #RSA Public Key
-    #aes_gen_key = AESGCM.generate_key(bit-length=256) #Generates 256-bit AES Key
-    #aesgcm = AESGCM(aes_gen_key)
-    #encrypt message with AES key, prepended with IV
-    #HMAC (SHA-256) on ciphertext to create integrity tag 
-    #concatenate AES & HMAC keys and encrypt with RSA
-    #create json object with RSA ciphertext, AES ciphertext, HMAC tag
-    #note size of each key
-
+"""
+Initialize RSA-OAEP object with 2048-bit key size
+Load private key into RSA-OAEP object
+Decrypt RSA ciph_key to recover the pair of 256-bit keys
+HMAC with the recovered HMAC key and compare the new HMAC tag to the one passed in the json object, return failure if this fails
+Decrypt the AES ciphertext with the AES key and IV from encryption
+Unpad the decrypted ciphetext
+"""
 def decrypter(json_object, private_key):
-    #rsa_obj = RSA.generate(2048) #creates a 2048-bit RSA object
-    key_file = open(private_key, 'r') #opens file containing RSA private key
-    rsa_private_key = RSA.importKey(key_file.read(), "doubletrouble")
-    rsa_cipher = PKCS1_OAEP.new(rsa_private_key) #initialzes RSA object using OAEP and private key
-    #parsed_json = json.loads(json_object) #parsed JSON object 
-    concat_key = rsa_cipher.decrypt(json_object["RSA_cipher"]) #decrypts the concatanated cipher keys that was encrypted using RSA
+    key_file = open(private_key, 'rb') #opens file containing RSA private key
+    load_private_key = serialization.load_pem_private_key(key_file.read(), password=None, backend=default_backend())
+    private_key = load_private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    #parsed_json = json.loads(json_object) #parsed JSON object
+
+    #decrypts the concatanated cipher keys that was encrypted using RSA
+    concat_key = load_private_key.decrypt(
+        json_object["RSA_cipher"],
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
     aes_key = concat_key[:len(concat_key)//2] #first half of concatanated key
     hmac_key = concat_key[len(concat_key)//2:] #second half of concataneted key
-    #print("Decrypting...")
-    #print("AES Key:" + str(aes_key) + " length: " + str(len(aes_key)))
-    #print("HMAC Key:" + str(hmac_key) + " length: " + str(len(hmac_key)))
-    hmac_obj = hmac.new(hmac_key, json_object["AES_cipher"], hashlib.sha256)
-    hmac_tag = hmac_obj.digest()
-    #Integrity check to ensure message wasn't modified
-    if(hmac_tag != json_object["tag"]):
-        return "failure"
-    else: 
-        aes_obj = AES.new(aes_key, AES.MODE_CBC, json_object["IV"]) #creates AES object using same AES key during encryption and same IV
-        ciphertext = json_object["AES_cipher"][16:]
-        #return "success"
-        return unpad(aes_obj.decrypt(ciphertext)).decode('utf-8') #removes padding
-        
-        #return message
 
-encrypt_test = encrypter("apple bottom jeans", "public.pem")
-orig_message = decrypter(encrypt_test, "private.pem")
+    #Generates HMAC tag for integrity check with the HMAC tag created from the ciphertext
+    hmac_tag = hmac.HMAC(hmac_key, hashes.SHA256(), backend=default_backend())
+    hmac_tag.update(json_object["AES_cipher"])
+    tag = hmac_tag.finalize()
+    #Integrity check to ensure message wasn't modified
+    if(tag != json_object["tag"]):
+        print("New HMAC Tag:" + str(tag))
+        print("Old HMAC Tag:" + str(json_object["tag"]))
+        return "failure"
+    else:
+        #decrypts the AES encrypted ciphertext and removes the padding
+        aes_decrypt = Cipher(
+            algorithms.AES(aes_key),
+            modes.CBC(json_object["IV"]),
+            backend=default_backend()
+        ).decryptor()
+        padded_message = aes_decrypt.update(json_object["AES_cipher"]) + aes_decrypt.finalize()
+        #Unpads the message and returns it as plaintext
+        message = sym_unpad.update(padded_message)
+        return (message + sym_unpad.finalize()).decode('utf-8')
+
+encrypt_test = encrypter("apple bottom jeans", "public_key.pem")
+orig_message = decrypter(encrypt_test, "private_key.pem")
 print(orig_message)
