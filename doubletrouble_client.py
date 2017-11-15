@@ -1,6 +1,7 @@
 """
 Client Module for Encryption and Decryption
 """
+import boto3
 import os
 import json
 import hmac
@@ -8,6 +9,9 @@ import hashlib
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes, hmac, padding
+
+#EC2 Instance
+ec2 = boto3.resource('ec2')
 
 #Padding/Unpadding for AES encryption
 sym_pad = padding.PKCS7(256).padder()
