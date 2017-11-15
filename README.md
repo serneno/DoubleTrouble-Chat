@@ -8,10 +8,10 @@ https://teamdoubletrouble.me
 ```
 db.sqlite3 (database)
 doubletrouble_chat (django project)
-  accounts
-  client (will be used for all client files)
-  settings.py (contains all settings that the django project uses)
-  urls.py (contains all valid urls that django will accept)
+  - accounts
+  - client (will be used for all client files)
+  - settings.py (contains all settings that the django project uses)
+  - urls.py (contains all valid urls that django will accept)
 doubletrouble_client.py (current file containing methods for encrypting and decrypting messages)
 env (contains the virtual environment the django project uses, includes all packages used)
 manage.py (to run django processes)
