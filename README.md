@@ -1,11 +1,11 @@
 # Welcome to our Secure-E2E-Chat!
 This is the beginnings of Double Trouble's project... stay tuned.
 
-#Domain
+# Domain
 https://teamdoubletrouble.me
 
-#Folder Structure
-'''
+# Folder Structure
+```
 db.sqlite3 (database)
 doubletrouble_chat (django project)
   accounts
@@ -17,7 +17,7 @@ env (contains the virtual environment the django project uses, includes all pack
 manage.py (to run django processes)
 static (contains all static files the django project utilizes)
 tutorial (was used for testing django things)
-'''
+```
 
 ## Built With
  * [Django Rest Framework] (www.django-rest-framework.org/)
