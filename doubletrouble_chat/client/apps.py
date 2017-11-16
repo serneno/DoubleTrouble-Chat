@@ -5,4 +5,4 @@ from django.apps import AppConfig
 
 
 class ClientConfig(AppConfig):
-    name = 'client'
+    name = 'doubletrouble_chat.client'
