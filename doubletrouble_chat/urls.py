@@ -28,13 +28,14 @@ router.register(r'groups', client_views.GroupViewSet)
 urlpatterns = [
 	url(r'^', include(router.urls)),
 	url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+	# JWT token authorization
+	url(r'^api-token-auth/', obtain_jwt_token),
+	url(r'^api-token-refresh/', refresh_jwt_token),
+	url(r'api-token-verify/', verify_jwt_token),
+	# default django authentication login/logout pages
 	url(r'^login/$', auth_views.login, name='login'),
 	url(r'^logout/$', auth_views.logout, name='logout'),
 	url(r'^admin/', admin.site.urls),
 	# user auth urls
-	#url(r'^accounts/', include('doubletrouble_chat.accounts.urls', namespace='accounts')),
-	# jwt token urls
-	url(r'^api-token-auth/', obtain_jwt_token),
-	url(r'^api-token-refresh/', refresh_jwt_token),
-	url(r'api-token-verify/', verify_jwt_token),
+	url(r'^accounts/', include('doubletrouble_chat.accounts.urls', namespace='accounts')),
 ]
