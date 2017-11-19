@@ -110,4 +110,6 @@ venv.bak/
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+
+#SECRETS
 doubletrouble_chat/settings_sec.py
