@@ -27,7 +27,7 @@ with open(os.path.join(BASE_DIR, 'doubletrouble_chat/django_secret.txt')) as f:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['54.183.122.219', 'teamdoubletrouble.me']
+ALLOWED_HOSTS = ['54.183.122.219', 'teamdoubletrouble.me', '127.0.0.1']
 
 # Application definition
 
@@ -73,7 +73,7 @@ ROOT_URLCONF = 'doubletrouble_chat.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'doubletrouble_chat/accounts/templates/')],
+        'DIRS': [],#[os.path.join(BASE_DIR, 'doubletrouble_chat/accounts/templates/')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -175,3 +175,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
+
+LOGIN_URL = 'login'
+LOGOUT_URL = 'logout'
+LOGIN_REDIRECT_URL = 'home'
